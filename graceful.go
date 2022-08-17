@@ -9,9 +9,19 @@ import (
 	"time"
 )
 
-func Graceful(ip string, port int, h http.Handler, shutTimeout time.Duration) error {
-	if shutTimeout < time.Second*3 {
-		shutTimeout = time.Second * 3
+var (
+	DefaultGracefulOption *GracefulOption = &GracefulOption{
+		ShutTimeout: 3 * time.Second,
+	}
+)
+
+type GracefulOption struct {
+	ShutTimeout time.Duration
+}
+
+func Graceful(ip string, port int, h http.Handler, opt *GracefulOption) error {
+	if opt == nil {
+		opt = DefaultGracefulOption
 	}
 	// bind ip&port
 	srv := &http.Server{
@@ -31,10 +41,10 @@ func Graceful(ip string, port int, h http.Handler, shutTimeout time.Duration) er
 	select {
 	case s := <-ctx.Done():
 		stop()
-		timeoutCtx, cancel := context.WithTimeout(context.Background(), shutTimeout)
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), opt.ShutTimeout)
 		defer cancel()
 		if err := srv.Shutdown(timeoutCtx); err != nil {
-			return fmt.Errorf("receive sign(%s),shut down timeout %f s", s, shutTimeout.Seconds())
+			return fmt.Errorf("receive sign(%s),shut down timeout %f s", s, opt.ShutTimeout.Seconds())
 		}
 		return fmt.Errorf("receive sign(%s), shut down", s)
 	case e := <-errCh:
